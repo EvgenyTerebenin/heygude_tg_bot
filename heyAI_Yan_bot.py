@@ -2,8 +2,7 @@ import json
 import logging
 import os
 from datetime import datetime
-from typing import Dict, Any, Optional
-from uuid import uuid4
+from typing import Dict, Any
 
 import requests
 from dotenv import load_dotenv
@@ -14,8 +13,8 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 load_dotenv()
 
 
-# Configuration
 class Config:
+    """Configuration settings for the bot."""
     TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
     YANDEX_API_KEY = os.getenv("YANDEX_API_KEY")
     YANDEX_FOLDER_ID = os.getenv("YANDEX_FOLDER_ID")
@@ -94,8 +93,7 @@ class YandexGPTClient:
             ]
         }
 
-    def _create_error_response(self, code: str, message: str,
-                               timestamp: str, **details) -> str:
+    def _create_error_response(self, code: str, message: str, timestamp: str, **details) -> str:
         """Create standardized error response."""
         error_data = {
             "status": "error",
@@ -190,7 +188,7 @@ class YandexGPTClient:
                 "timeout_error",
                 "Превышено время ожидания ответа от API",
                 timestamp,
-                retry_after=30
+                retry_after=60
             )
 
         except requests.exceptions.HTTPError as e:
@@ -211,7 +209,7 @@ class YandexGPTClient:
                 "connection_error",
                 "Ошибка подключения к API",
                 timestamp,
-                retry_after=60
+                retry_after=30
             )
 
         except requests.exceptions.RequestException as e:
@@ -261,9 +259,24 @@ class TelegramBot:
         )
 
     async def _start_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle /start command."""
+        """Handle /start command with timestamp support."""
+        timestamp = self.gpt_client._get_current_timestamp()
+
+        welcome_response = {
+            "status": "success",
+            "data": {
+                "text": "Привет! Я AI-агент, подключенный к YandexGPT. Задайте мне любой вопрос.",
+                "metadata": {
+                    "model": "yandexgpt",
+                    "timestamp": timestamp,
+                    "tokens_used": 0
+                }
+            },
+            "error": None
+        }
+
         await update.message.reply_text(
-            "Привет! Я AI-агент, подключенный к YandexGPT. Задайте мне любой вопрос."
+            json.dumps(welcome_response, ensure_ascii=False, indent=2)
         )
 
     async def _message_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -285,7 +298,7 @@ class TelegramBot:
 
     def run(self):
         """Start the bot."""
-        logger.info("Starting bot...")
+        logger.info("Starting Telegram bot...")
         self.application.run_polling()
 
 
